@@ -1,0 +1,200 @@
+
+```{r, echo = FALSE, include = FALSE}
+library(hoopR)
+```
+
+```{r, echo = FALSE, include = FALSE}
+library(tidyverse)
+```
+
+
+
+```{r, echo = FALSE, include = FALSE}
+
+nba_player_stats <- load_nba_player_box(seasons = 2014:2023)
+
+# Simplify to a ranking of player stats by points per 36 min --------------
+
+nba_player_score_summary <- nba_player_stats |>
+  group_by(athlete_id, athlete_display_name, athlete_position_name) |>
+  summarize(minutes_played = sum(minutes, na.rm = TRUE),
+            total_points = sum(points, na.rm = TRUE),
+            made = sum(three_point_field_goals_made, na.rm = TRUE),
+            attempts = sum(three_point_field_goals_attempted, na.rm = TRUE),
+            percent = made/attempts,
+            .groups = "drop") |>
+  mutate(points_per_36min = total_points / minutes_played * 36)
+```
+
+
+
+```{r, echo = FALSE, include = FALSE}
+mbb_player_stats <- load_mbb_player_box(seasons = 2007:2020)
+
+mbb_player_score_summary <- mbb_player_stats |>
+  group_by(athlete_id, athlete_display_name, athlete_position_name) |>
+  summarize(mbb_minutes_played = sum(minutes, na.rm = TRUE),
+            mbb_total_points = sum(points, na.rm = TRUE),
+            mbb_made = sum(three_point_field_goals_made, na.rm = TRUE),
+            mbb_attempts = sum(three_point_field_goals_attempted, na.rm = TRUE),
+            mbb_percent = mbb_made/mbb_attempts,
+            .groups = "drop") |>
+  mutate(points_per_36min = mbb_total_points / mbb_minutes_played * 36)
+```
+
+```{r, echo = FALSE, include = FALSE}
+nba_mbb <- merge(nba_player_score_summary, mbb_player_score_summary, by = "athlete_id")
+```
+
+
+```{r, echo = FALSE, include = FALSE}
+nba_mbb$above_average <- ifelse(nba_mbb$percent > 0.37, 1, 0)
+```
+
+```{r, echo = FALSE, include = FALSE}
+nba_mbb$highShooter <- ifelse(nba_mbb$mbb_attempts > 227, 1, 0)
+```
+
+```{r, echo = FALSE, include = FALSE}
+library(bestglm)
+```
+
+```{r, echo = FALSE, include = FALSE}
+onlyNumeric <- nba_mbb[, c("above_average", "mbb_minutes_played", "mbb_total_points", "mbb_made", "mbb_attempts", "mbb_percent"),]
+
+onlyNumeric = na.omit(onlyNumeric)
+```
+
+
+```{r, echo = FALSE, include = FALSE}
+bestglm(onlyNumeric, above_average ~ mbb_minutes_played + mbb_total_points + mbb_made + mbb_attempts + mbb_percent, IC = "LOOCV", method = 'exhaustive', family = gaussian)
+```
+
+```{r, echo = FALSE, include = FALSE}
+bestglm(onlyNumeric, percent ~ mbb_minutes_played + mbb_total_points + mbb_made + mbb_attempts + mbb_percent, IC = "LOOCV", method = 'exhaustive', family = gaussian)
+```
+
+```{r, echo = FALSE, include = FALSE}
+bestModel <- glm(data = onlyNumeric, above_average ~ mbb_made + mbb_attempts, family = binomial)
+summary(bestModel)
+```
+
+```{r, echo = FALSE, include = FALSE}
+bestModel1 <- glm(data = nba_mbb, percent ~ mbb_made + mbb_attempts, family = binomial)
+summary(bestModel1)
+```
+
+
+
+
+
+```{r, echo = FALSE, include = FALSE}
+library(boot)
+```
+
+
+```{r, echo = FALSE, include = FALSE}
+cv.glm(data = onlyNumeric, bestModel, K = 5)
+
+
+guards <- nba_mbb %>%
+  filter(str_detect(athlete_position_name.x, "Guard"))
+
+guardsModel <- lm(percent ~ mbb_percent, data = guards)
+```
+
+
+```{r, echo = FALSE, include = FALSE}
+library(lme4)
+```
+
+
+
+```{r, echo = FALSE, include = FALSE}
+glmm_shooting <- glmer(above_average ~ mbb_percent + (mbb_attempts | athlete_position_name.x),
+                         family = binomial, data = nba_mbb)
+
+summary(glmm_shooting)
+```
+
+
+
+```{r, echo = FALSE, include = FALSE}
+library(broom.mixed)
+```
+
+
+```{r, echo = FALSE, include = FALSE}
+group_raneff <- tidy(glmm_shooting, effects = "ran_vals")
+# View the dataset
+group_raneff
+```
+
+## Introduction
+
+
+Steph Curry, Klay Thompson, Ray Allen, Ben Simmons. Wait, scratch that last one. These are some of the greatest shooters in NBA history, but where did they come from and how did their teams figure out they were going to be so great? In recent years, accurate 3-point shooting has changed the way basketball is played. To properly optimize an offense, shooters are a necessity for any team with playoff ambitions. If NBA teams can find legitimate trends, they can make causal inferences about what college stars now are going to become NBA sharpshooters later. Being able to more accurately predict draft prospects NBA shooting would allow for better, safer drafting. In this report, we aim to test the predictability of NBA 3-point shooting, using college basketball 3-point shooting, in order to better evaluate draft prospects. This is an incredibly interesting question and we aim to find the best predictors (an just how accurate those predictors are) in order to find the next Steph Curry and in order to avoid the next Ben Simmons.
+
+
+## Data
+
+The data used in this report comes from the hoopR package in R. In hoopR, there is a multitude of play by play and box score basketball data, coming from ESPN. We specifically looked at NBA player stats from 2007 to 2020, and college player stats from 2014-2023. In order to use this data, we merged the two datasets, matching for the common players. This gave us with 469 players in total. The dataset includes the following variables:
+
+
+**Variables**
+
+
+mbb_attempts: Total college 3-point attempts per player
+
+
+mbb_made: Total college 3-point attempts made per player
+
+
+mbb_percent: College 3-point percentage per player
+
+
+mbb_total_points: Total points for college players
+
+
+mbb_total_minutes: Total minutes for college players
+
+
+player_position: What position the player had in college
+
+
+nba_attempts: Total NBA 3-point attempts per player
+
+
+nba_made: Total NBA 3-point attempts made per player
+
+
+nba_percent: NBA 3-point percentage per player
+
+
+above_average: Whether a player shot above the league average (37%) for 3-point shooting
+
+We proceed to conduct some exploratory analysis to better understand the variables. Specifically, we look at the distributions of attempts done and shots made by both NBA players and college players, as well as the proportion of “above average” players in the NBA, which we define as players whose percentage of shots made are greater than 37%. As seen in the scatterplots of college player attempts, there is a reasonable spread, with the majority of the players resting from 0 to 800. In NBA player attempts, there is a stronger concentration of players at the lower end of attempts around the range of 0 to 2000, with some outlier players at the range of 2000 to 3000. This makes sense, as players usually playing at college for a maximum of 4 years, while in the NBA, theres a much larger range of playing years. This also applies to made shots, in which the majority of college players are fairly spread around 0 to 300, and NBA players, in which a large portion of players are concentrated with 0 to 400, with outliers reaching to 1200-1400. Players defined as “above-average” in NBA shooting make up around 20%, with the other portion making up around 80%.
+
+```{r, echo = FALSE}
+
+par(mfrow = c(3, 2))
+
+prop_table <- table(nba_mbb$above_average) / length(nba_mbb$above_average)
+
+plot(nba_mbb$mbb_attempts, main = "Distribution of College Attempts", ylab= "Attempts", col= "red" )
+
+plot(nba_mbb$attempts, main = "Distribution of NBA Attempts", ylab= "Attempts", col= "blue" )
+
+plot(nba_mbb$mbb_made, main = "Distribution of College Made Shots", ylab= "Made Shots", col= "red" )
+
+plot(nba_mbb$made, main = "Distribution of NBA Made Shots", ylab= "Made Shots", col= "blue" )
+
+barplot(prop_table, main = "Proportion of Above Average NBA Shooters",
+
+        xlab = "Above Average", ylab = "Proportion",
+
+        col = c("lightblue", "lightgreen"), ylim = c(0, 1))
+
+legend("topright", legend = c("Below Average", "Above Average"), fill = c("lightblue", "lightgreen"))
+
+```
