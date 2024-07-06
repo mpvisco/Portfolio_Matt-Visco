@@ -1,3 +1,10 @@
+A Shot in the Dark: Finding the Next Steph Curry
+
+by Matt Visco
+
+36-402 Sports Analytics, Spring 2024
+
+
 
 ```{r, echo = FALSE, include = FALSE}
 library(hoopR)
@@ -133,12 +140,24 @@ group_raneff
 ## Introduction
 
 
-Steph Curry, Klay Thompson, Ray Allen, Ben Simmons. Wait, scratch that last one. These are some of the greatest shooters in NBA history, but where did they come from and how did their teams figure out they were going to be so great? In recent years, accurate 3-point shooting has changed the way basketball is played. To properly optimize an offense, shooters are a necessity for any team with playoff ambitions. If NBA teams can find legitimate trends, they can make causal inferences about what college stars now are going to become NBA sharpshooters later. Being able to more accurately predict draft prospects NBA shooting would allow for better, safer drafting. In this report, we aim to test the predictability of NBA 3-point shooting, using college basketball 3-point shooting, in order to better evaluate draft prospects. This is an incredibly interesting question and we aim to find the best predictors (an just how accurate those predictors are) in order to find the next Steph Curry and in order to avoid the next Ben Simmons.
+Steph Curry, Klay Thompson, Ray Allen, Ben Simmons. Wait, scratch that last one. These are some of the greatest
+shooters in NBA history, but where did they come from and how did their teams figure out they were going to be so great?
+In recent years, accurate 3-point shooting has changed the way basketball is played.To properly optimize an offense,
+shooters are a necessity for any team with playoff ambitions. If NBA teams can find legitimate trends, they can
+make causal inferences about what college stars now are going to become NBA sharpshooters later. Being able to more accurately predict
+draft prospects NBA shooting would allow for better, safer drafting. In this report, we aim to test the predictability of NBA
+3-point shooting, using college basketball 3-point shooting, in order to better evaluate draft prospects. This is an incredibly interesting
+question and we aim to find the best predictors (an just how accurate those predictors are) in order to find the next Steph Curry
+and in order to avoid the next Ben Simmons.
 
 
 ## Data
 
-The data used in this report comes from the hoopR package in R. In hoopR, there is a multitude of play by play and box score basketball data, coming from ESPN. We specifically looked at NBA player stats from 2007 to 2020, and college player stats from 2014-2023. In order to use this data, we merged the two datasets, matching for the common players. This gave us with 469 players in total. The dataset includes the following variables:
+The data used in this report comes from the hoopR package in R. In hoopR, there is a multitude of play by play and box score
+basketball data, coming from ESPN. We specifically looked at NBA player stats from 2007 to 2020, and college player stats from
+2014-2023. In order to use this data, we merged the two datasets, matching for the common players. This gave us with 469 players
+in total. The dataset includes the following variables:
+
 
 
 **Variables**
@@ -173,7 +192,18 @@ nba_percent: NBA 3-point percentage per player
 
 above_average: Whether a player shot above the league average (37%) for 3-point shooting
 
-We proceed to conduct some exploratory analysis to better understand the variables. Specifically, we look at the distributions of attempts done and shots made by both NBA players and college players, as well as the proportion of “above average” players in the NBA, which we define as players whose percentage of shots made are greater than 37%. As seen in the scatterplots of college player attempts, there is a reasonable spread, with the majority of the players resting from 0 to 800. In NBA player attempts, there is a stronger concentration of players at the lower end of attempts around the range of 0 to 2000, with some outlier players at the range of 2000 to 3000. This makes sense, as players usually playing at college for a maximum of 4 years, while in the NBA, theres a much larger range of playing years. This also applies to made shots, in which the majority of college players are fairly spread around 0 to 300, and NBA players, in which a large portion of players are concentrated with 0 to 400, with outliers reaching to 1200-1400. Players defined as “above-average” in NBA shooting make up around 20%, with the other portion making up around 80%.
+We proceed to conduct some exploratory analysis to better understand the variables. Specifically, we look at the distributions of
+attempts done and shots made by both NBA players and college players, as well as the proportion of “above average” players in the
+NBA, which we define as players whose percentage of shots made are greater than 37%. As seen in the scatterplots of college player
+attempts, there is a reasonable spread, with the majority of the players resting from 0 to 800. In NBA player attempts, there is a
+stronger concentration of players at the lower end of attempts around the range of 0 to 2000, with some outlier players at the range
+of 2000 to 3000. This makes sense, as players usually playing at college for a maximum of 4 years, while in the NBA, theres a much
+larger range of playing years. This also applies to made shots, in which the majority of college players are fairly spread around
+0 to 300, and NBA players, in which a large portion of players are concentrated with 0 to 400, with outliers reaching to 1200-1400.
+Players defined as “above-average” in NBA shooting make up around 20%, with the other portion making up around 80%.
+
+
+
 
 ```{r, echo = FALSE}
 
@@ -196,5 +226,340 @@ barplot(prop_table, main = "Proportion of Above Average NBA Shooters",
         col = c("lightblue", "lightgreen"), ylim = c(0, 1))
 
 legend("topright", legend = c("Below Average", "Above Average"), fill = c("lightblue", "lightgreen"))
+
+```
+
+
+Before we go into the methods, it's always a good idea to look at how a basic linear model looks against the data.
+The model shown below is simply regressing college percentage on nba percentage, and while the data points seem to show a clear linear
+relationship, the model itself doesn't seem to fit the data very well. We'll examine why that is later, but it's something
+to keep track of for now.
+
+```{r, echo = FALSE, include = FALSE}
+linearModel <- lm(percent ~ mbb_percent, data = nba_mbb)
+```
+
+
+```{r, echo = FALSE}
+plot((nba_mbb$mbb_percent) * 100, (nba_mbb$percent) * 100, main = "3 Point Shooting in College vs NBA", xlab = "College Percent", ylab = "NBA Percent")
+
+abline(linearModel, col = 'blue')
+
+```
+
+
+
+
+
+## Methods
+
+When attempting to create a model predicting shooting based on college performance, our first thought was to create a Generalized Linear Model using the bestglm function in R. In order to do this, we needed to have a binary variable act as the response variable so we included the above_average variable as our response variable and used all of the relevant variables in our nba_mbb dataset as our predictor variables. When running the bestglm model, we used AIC as our information criteria and we set out family to "binomial" as we are working with a binary variable. 
+
+Before we go any further, we are going to check and make sure the necessary assumptions for this model are satisfied. First, understanding the difficulty in making interpretations off of residual/QQ plots for binomial regressions, we are going to instead analyze these assumptions using a very similar model, with percent as the predictor instead of above_average. We can do this through looking at a residual plot and a QQ plot, basically checking for heteroskedacity and ormality. As shown below, the residual plot seems to check out as the residuals seem scattered appropriately around 0. However, there are some issues with the QQ plot, specifically around the bottom tail. Even though we can see this variation around the bottom tail, for the purposes of this project, we will forge ahead with our GLM, not forgetting this issue with our Normality assumption.
+
+
+```{r, echo = FALSE}
+par(mfrow = c(1, 2))
+plot(bestModel1, 1)
+plot(bestModel1, 2)
+```
+
+
+When running the model, we found that the bestglm function chose mbb_made and mbb_attempts as our two predictors. As shown below, our GLM
+with these two variables used as predictors shows a positive relationship between 3-point shots made in college and likelihood of becoming
+an above average shooter in the NBA (0.036) and a negative relationship between 3-pointers attempted in college and likelihood of becoming an
+above average shooter in the NBA (0.012). While percent is not included in this GLM, we can use the coefficients in order to make some
+assumptions here. Since, the coefficient for shots made is three times higher than the coefficient for shots attempted, we can conclude
+that based off of this model, college players who shoot above 33.3% have an above average chance at becoming an above average 3 point shooter, and
+college players who shoot below 33.3% have a below average chance at becoming an above average 3 point shooter.
+
+We are going to quantify uncertainty for this model using 5-fold leave one-out cross validation. When doing such, we found that the uncertainty
+estimate for this model is .14, which seems like a pretty low value. This GLM has given interesting results and shows a statistically significant
+relationship between college makes/attempts and NBA shooting performance, which is unsurprising but still interesting to see. 
+
+
+The next model we are going to attempt to create is a multilevel model. We are going to specifically factor on what position that these athletes
+played in collge, using college position as a random effect. We decided to make this choice after realizing that the importance of strong shooting
+is definitely a lot different based on a player's position. For example, it is much more important for guards to be above average shooters compared
+to centers. For the most part, guards who can't shoot have been finding their way to the bench (Ben Simmons) but centers who can't
+shoot (Steven Adams), still definitely have a role in the modern NBA. As far as fixed effects, we are going to use percent as an instrument
+for made and attempts here, as we believe that college 3-point shooting as a predictor operates similarly to using both college 3-point makes
+and college 3-point attempts.
+
+
+We are also going to quantify uncertainty for this model using conditional standard deviation estimates per position. Shown below are these
+specific standard deviations per position.
+
+
+
+```{r, echo = FALSE}
+group_raneff |>
+  ggplot(aes(x = level, y = estimate)) +
+  geom_point(alpha = 0.5) +
+  geom_errorbar(aes(ymin = estimate - std.error, ymax = estimate + std.error),
+                alpha = 0.5) +
+  # Add line at 0 on top:
+  geom_hline(yintercept = 0, linetype = "dashed", color = "red") +
+  facet_wrap(~group, ncol = 3, scales = "free_x") +
+  theme_bw()
+  # Remove the x axis labels and ticks for each group level 
+  
+```
+
+As we can see, the far majority of the standard deviations are centered below 0, which is a major problem for our assumption that our errors
+are Normally distributed. Because of the fact we can't approve the assumption here, it's going to create limits on what predictions we can make
+with this model. We'll touch upon this later in our conclusion.
+
+
+When it comes to comparing these two models, we're going to use a couple different metrics. First, we'll compare the uncertainties of each model, and
+then we'll compare whether the predictors in each model are statistically significant, and finally we'll examine the coefficients in each model to see
+if the two models are telling the same story or whether they differ.
+
+
+
+## Results
+
+
+
+```{r, echo = FALSE, include = FALSE}
+summary(bestModel)
+summary(glmm_shooting)
+```
+
+
+
+The first element of these models that we are going to compare are the coefficents for the predictors in each model. The GLM model has an intercept
+with a coefficent of -1.79 with a standard error of 0.22, a coefficient for mbb_made of 0.036 with a standard error of 0.012, and a coefficient for
+mbb_attempts of -0.012 with a standard error of 0.0046.
+
+As this is a glm, we can interpret those variables using their impact on the log odds. This means for each additional shot made, the log odds of
+being an above-average 3-point shooter in the NBA increases by 3%, but for every additional shot attempted, the log odds of being an above-average
+3-point shooter in the NBA decreases by 1%.
+
+Meanwhile, the multilevel model with the random effects for position players has an intercept of -2.54 with a standard error of 0.59, and an intercept
+for mbb_percent of 2.93 with a standard error of 1.68. This means that for every increase in 3-point shooting percentage in college by 1 %, the log odds
+of being an above-average 3-point shooter in the NBA increases by 18%.
+
+So far, both models seem to be telling us similar things, that the more accurate of a shooter that you are at the college level, the more accurate
+of a shooter you will be at the NBA level.
+
+The next way that we are going to compare these two models is by looking at the significance values of the coefficients. First off, the p-values
+for the coefficients in the GLM model are both far below 0.05, showing that both coefficients are significant. Next in the multilevel model, where
+we use positions as random effects, the p-value for college shooting percentage is 0.08, which is below the conventional significance value of
+0.05, which is a legitimate problem. However, as it still is under 0.10, it is considered significant when testing to a 95% level.
+
+Finally, we are going to look back at the uncertainty estimates that we measured in the "Methods" section. We used 5-fold cross validation to
+calculate an uncertainty estimate of 0.14 for our GLM, which all things considered is a pretty low value. However, there were issues with meeting
+the Normality assumption due to variations in the QQ plot for this GLM, so this low uncertainty value could very well be misleading and inaccurate,
+which we have to account for when deciding whether to make predictions based on this model.
+
+Moreover, the uncertainty estimates for our multilevel model were also problematic as we used the standard deviations for the random effect
+groups to measure uncertainty, and we found that the distribution of the standard deviations were not centered around 0. This tells us that there
+may be uncertainty in this model that the model currently does not account for, again casting doubts on the reliabilty of our multilevel model. 
+
+
+Even though there are plenty of problems with our multilevel model, there are lots of insights we can take away from using positions as random
+effects. First off, we can look at how the position a player had in college had an impact on their NBA shooting performance using this graphic below.
+
+
+```{r, echo = FALSE}
+estimates <- c(0, 0.048, 0.052, 0.054, 0.058)
+
+positions <- c("Center", "Small Forward", "Power Forward", "Point Guard", "Shooting Guard")
+
+barplot(estimates, names.arg = c("C", "SF", "PF", "PG", "SG"), col = c("blue"), ylab = "Change in Coefficient for Position", xlab = "Position", main = "Change in Shooting Percentage by Position")
+```
+
+This gives us the order (compared to centers) of positions that have the highest shooting percentage in the NBA. Unsurprisingly, college guards
+have the highest shooting percentage in the NBA, then forwards, then centers. This is what a reasonable person would have assumed before conducting
+this analysis, but it's interesting to see the statistical proof here. We were able to find this simply by filtering our data  by position and
+running a simpler linear model, filtering by position, and comparing the coefficients (all of which were statistically significant). Even though
+this is a much simpler way of modeling compared to our multilevel model, it gives us some clear insights we can take away from it. For example, NBA
+teams who are simply looking for strong 3-point shooters in the draft should definitely be focusing on draftign guards.
+
+Additionally, when filtering by college guards, the simple linear model seems to fit the scatter plot a whole lot better than it did earlier back
+in the EDA section. Even though it isn't perfect, we can see below, that the model filtering on guards shows a closer relationship between college
+shooting percentage and NBA shooting percentage for guards.
+
+```{r, echo = FALSE}
+plot((nba_mbb$mbb_percent) * 100, (nba_mbb$percent) * 100, main = "3 Point Shooting in College vs NBA", xlab = "College Percent", ylab = "NBA Percent")
+
+abline(linearModel, col = 'blue')
+
+abline(guardsModel, col = 'red')
+
+legend("topright", legend = c("Linear Model", "Just for Guards"), col = c("blue", "red"), lwd = 2)
+```
+
+
+
+## Discussion
+
+
+
+
+What we set out to do here is to find predictors from college statistics that accurately and routinely predict strong shooting performance in the NBA. In
+order to do this, we relied on two different models, the first being a generalized linear model (GLM) using the bestglm function, second a multilevel model
+with college shooting percentage as a fixed effect and player position as a random effect. We learned from both models that there was a relationship between
+shooting percentage in the college basketball and shooting percentage in the NBA.
+
+In the second model, we found that players who play point guard and shooting guard in college tend to have a better shooting percentage in the NBA than
+forwards and especially centers. Moreover, the multilevel model was stronger and showed a more significant predictive power when filtered solely to guards. This
+means that guards who shoot well in college or more likely to become better shooters in the NBA than forwards who shoot well in college. We'd speculate that
+this is because of the fact that guards tend to take more three point shots (and we also found that our model's predictive power is correlated with attempts
+as well), so the larger sample size should theoretically make the model more powerful.
+
+
+However, while we were able to gleam a lot of insights from these models, we must remember that there were limitations. First, we were unable to "check off" the
+Normality assumption in the first GLM model, which means that our model very well could have biased parameters and inaccurate results. This makes it dangerous
+to accept any conclusions from this model as fact. Next, the uncertainty estimates in the multilevel model were not centered around zero, which also makes it
+dangerous to make certain conclusions from the multilevel model. 
+
+Another limitation of our model is that it doesn't have a minimum number of shot attempts, a lucky center could take and make one three point shot, and it
+could completely skew the data, and especially our cross-validation estimate. A clear next step to account for this would be to filter the dataset by a minimum
+number of shots, in both college and in the NBA. 
+
+One more next step that would be interesting to see would be to filter the dataset by the conference that the college basketball player was in, as it may be
+easier to be a good shooter against MAC defense compared the Big East. This way we can see if 3 point percentage in harder games is more impactful than 3-point
+percentage against easier competition.
+
+
+
+
+
+## Code Appendix
+
+
+```{r, include = FALSE}
+library(hoopR)
+```
+
+```{r,  include = FALSE}
+library(tidyverse)
+```
+
+
+
+```{r}
+
+nba_player_stats <- load_nba_player_box(seasons = 2014:2023)
+
+# Simplify to a ranking of player stats by points per 36 min --------------
+
+nba_player_score_summary <- nba_player_stats |>
+  group_by(athlete_id, athlete_display_name, athlete_position_name) |>
+  summarize(minutes_played = sum(minutes, na.rm = TRUE),
+            total_points = sum(points, na.rm = TRUE),
+            made = sum(three_point_field_goals_made, na.rm = TRUE),
+            attempts = sum(three_point_field_goals_attempted, na.rm = TRUE),
+            percent = made/attempts,
+            .groups = "drop") |>
+  mutate(points_per_36min = total_points / minutes_played * 36)
+```
+
+
+
+```{r}
+mbb_player_stats <- load_mbb_player_box(seasons = 2007:2020)
+
+mbb_player_score_summary <- mbb_player_stats |>
+  group_by(athlete_id, athlete_display_name, athlete_position_name) |>
+  summarize(mbb_minutes_played = sum(minutes, na.rm = TRUE),
+            mbb_total_points = sum(points, na.rm = TRUE),
+            mbb_made = sum(three_point_field_goals_made, na.rm = TRUE),
+            mbb_attempts = sum(three_point_field_goals_attempted, na.rm = TRUE),
+            mbb_percent = mbb_made/mbb_attempts,
+            .groups = "drop") |>
+  mutate(points_per_36min = mbb_total_points / mbb_minutes_played * 36)
+```
+
+```{r}
+nba_mbb <- merge(nba_player_score_summary, mbb_player_score_summary, by = "athlete_id")
+```
+
+
+```{r}
+nba_mbb$above_average <- ifelse(nba_mbb$percent > 0.37, 1, 0)
+```
+
+```{r}
+nba_mbb$highShooter <- ifelse(nba_mbb$mbb_attempts > 227, 1, 0)
+```
+
+```{r}
+library(bestglm)
+```
+
+```{r}
+onlyNumeric <- nba_mbb[, c("above_average", "mbb_minutes_played", "mbb_total_points", "mbb_made", "mbb_attempts", "mbb_percent"),]
+
+onlyNumeric = na.omit(onlyNumeric)
+```
+
+
+```{r}
+bestglm(onlyNumeric, above_average ~ mbb_minutes_played + mbb_total_points + mbb_made + mbb_attempts + mbb_percent, IC = "LOOCV", method = 'exhaustive', family = gaussian)
+```
+
+```{r}
+bestglm(onlyNumeric, percent ~ mbb_minutes_played + mbb_total_points + mbb_made + mbb_attempts + mbb_percent, IC = "LOOCV", method = 'exhaustive', family = gaussian)
+```
+
+```{r}
+bestModel <- glm(data = onlyNumeric, above_average ~ mbb_made + mbb_attempts, family = binomial)
+summary(bestModel)
+```
+
+```{r}
+bestModel1 <- glm(data = nba_mbb, percent ~ mbb_made + mbb_attempts, family = binomial)
+summary(bestModel1)
+```
+
+
+
+
+
+```{r,  include = FALSE}
+library(boot)
+```
+
+
+```{r}
+cv.glm(data = onlyNumeric, bestModel, K = 5)
+
+
+guards <- nba_mbb %>%
+  filter(str_detect(athlete_position_name.x, "Guard"))
+
+guardsModel <- lm(percent ~ mbb_percent, data = guards)
+```
+
+
+```{r}
+library(lme4)
+```
+
+
+
+```{r}
+glmm_shooting <- glmer(above_average ~ mbb_percent + (mbb_attempts | athlete_position_name.x),
+                         family = binomial, data = nba_mbb)
+
+summary(glmm_shooting)
+```
+
+
+
+
+
+
+```{r}
+library(broom.mixed)
+```
+
+
+```{r}
+group_raneff <- tidy(glmm_shooting, effects = "ran_vals")
+
 
 ```
