@@ -1,0 +1,685 @@
+from cmu_graphics import *
+import copy, string, itertools, random, math
+
+
+'''
+This is my GraphApp, we can graph all sorts of polynomials on this. 
+Try changing the x and y max's and mins to change the dimensions of our graph
+and plugging in any polynomials in box on the left. Try resetting the axes or
+clearing the list of Polynomials! The Polynomial class starting on line 503 uses
+Object-Oriented Programming, including attributes and a method (evaluate).
+'''
+
+
+
+
+
+
+
+'''
+
+def onAppStart(app):
+    app.width = 600
+    app.height = 400
+    app.maxY = 5
+    app.minY = -5
+    app.maxX = 5
+    app.minX = -5
+    app.rows = app.maxY - app.minY
+    app.cols = app.maxX - app.minX
+    app.boardLeft = 250
+    app.boardTop = 30
+    app.boardWidth = 300
+    app.boardHeight = 300
+    app.cellBorderWidth = 1
+    app.polynomials = []
+    app.colors = ['blue', 'red', 'green', 'orange', 'purple', 'yellow', 'pink']
+    app.typedWord = ''
+    app.minXWord = '-5'
+    app.minYWord = '-5'
+    app.maxXWord = '5'
+    app.maxYWord = '5'
+    app.centerX = 400
+    app.centerY = 180
+    
+    app.polyBoxLeft = 45
+    app.polyBoxTop = 150
+    app.polyBoxWidth = 130
+    app.polyBoxHeight = 30
+    
+    app.clearBoxLeft = 60
+    app.clearBoxTop = 355
+    app.clearBoxWidth = 100
+    app.clearBoxHeight = 20
+    
+    app.resetBoxLeft = 365
+    app.resetBoxTop = 370
+    app.resetBoxWidth = 70
+    app.resetBoxHeight = 20
+    
+    app.maxXBoxLeft = 525
+    app.maxXBoxTop = 355
+    app.maxXBoxWidth = 25
+    app.maxXBoxHeight = 20
+    
+    app.maxYBoxLeft = 210
+    app.maxYBoxTop = 30
+    app.maxYBoxWidth = 25
+    app.maxYBoxHeight = 20
+    
+    app.minXBoxLeft = 250
+    app.minXBoxTop = 355
+    app.minXBoxWidth = 25
+    app.minXBoxHeight = 20
+    
+    app.minYBoxLeft = 210
+    app.minYBoxTop = 310
+    app.minYBoxWidth = 25
+    app.minYBoxHeight = 20
+    
+    
+    app.minXClicked = False
+    app.minYClicked = False
+    app.maxXClicked = False
+    app.maxYClicked = False
+    app.resetClicked = False
+    app.polyClicked = False
+    app.clearClicked = False
+    
+    
+def redrawAll(app):
+    drawBoard(app)
+    drawBoardBorder(app)
+    drawLines(app)
+    cellWidth, cellHeight = getCellSize(app)
+    
+    count = 0
+    for poly in app.polynomials:
+        cantEval = True
+        starter = None
+        num = app.minX
+        staterNum = None
+        while num <= app.maxX:
+            if poly.evaluate(num) < app.minY or poly.evaluate(num) > app.maxY:
+                cantEval = True
+            if poly.evaluate(num) >= app.minY and poly.evaluate(num) <= app.maxY:
+                if cantEval == True:
+                    starter = poly.evaluate(num)
+                    cantEval = False
+                else:
+                    drawLine(app.centerY + (num - 0.05) * cellWidth, app.centerX - starter * cellHeight, app.centerY + (num * cellWidth),
+                    app.centerX - poly.evaluate(num) * cellHeight, fill = poly.color)
+                    starter = poly.evaluate(num)
+                    cantEval = False
+            num += .05
+            
+        drawLabel(f'{poly.coeffs}', 110, 200 + (count * 20), size = 16, fill = poly.color)
+        count +=1
+            
+        
+        
+        
+    yRange = app.maxY - app.minY
+    for i in range(yRange - 1):
+        drawLabel(f'{app.maxY - i - 1}', 240, 30 + (cellHeight * (i+1)))
+    
+    
+    xRange = app.maxX - app.minX
+    for i in range(xRange - 1):
+        drawLabel(f'{app.minX + i + 1}', 250 + (cellWidth * (i+1)), 340)
+        
+    drawLabel('GraphApp', 110, 50, font = 'arial', size = 30, fill = 'black')
+    drawLabel('Enter a polynomial', 110, 100)
+    drawLabel('in the form ax^n', 110, 120)
+  
+    drawRect(app.polyBoxLeft, app.polyBoxTop, app.polyBoxWidth, app.polyBoxHeight, fill = 'white', border = 'black')
+    
+    drawRect(app.clearBoxLeft, app.clearBoxTop, app.clearBoxWidth, app.clearBoxHeight, fill = 'white', border = 'black')
+    
+    drawRect(app.resetBoxLeft, app.resetBoxTop, app.resetBoxWidth, app.resetBoxHeight, fill = 'white', border = 'black')
+    
+    drawRect(app.minXBoxLeft, app.minXBoxTop, app.minXBoxWidth, app.minXBoxHeight, fill = 'white', border = 'black')
+    
+    drawRect(app.minYBoxLeft, app.minYBoxTop, app.minYBoxWidth, app.minYBoxHeight, fill = 'white', border = 'black')
+    
+    drawRect(app.maxXBoxLeft, app.maxXBoxTop, app.maxXBoxWidth, app.maxXBoxHeight, fill = 'white', border = 'black')
+    
+    drawRect(app.maxYBoxLeft, app.maxYBoxTop, app.maxYBoxWidth, app.maxYBoxHeight, fill = 'white', border = 'black')
+    
+    
+    
+    drawLabel("Clear All", 110, 365)
+    
+    drawLabel("Reset Axes", 400, 380)
+    
+    drawLabel("max y", 223, 25)
+    
+    drawLabel("min y", 223, 335)
+    
+    drawLabel("min x", 263, 380)
+    
+    drawLabel("max x", 538, 380)
+    
+    if app.polyClicked == True:
+        drawLabel(f'{app.typedWord}',110, 165)
+    
+    
+    drawLabel(f'{app.minXWord}', 263, 365)
+        
+    
+    drawLabel(f'{app.maxXWord}', 538, 365)
+        
+    
+    drawLabel(f'{app.minYWord}', 223, 320)
+        
+    
+    drawLabel(f'{app.maxYWord}', 223, 40)
+        
+        
+def drawLines(app):
+  
+    cellWidth, cellHeight = getCellSize(app)
+    if app.maxY > 0 and app.minY < 0:
+        drawLine(225, 30 + cellHeight * app.maxY, 575, 30 + cellHeight * app.maxY, fill = 'black', 
+        lineWidth = 3, arrowStart = True, arrowEnd = True)
+        
+    else:
+        drawLine(225, 30 + cellHeight * app.rows//2, 575, 30 + cellHeight * app.rows//2, fill = 'black', 
+        lineWidth = 3, arrowStart = True, arrowEnd = True)
+        
+    
+    if app.maxX > 0 and app.minX < 0:
+        drawLine(550 - (cellWidth * app.maxX), 5, 550 - (cellWidth * app.maxX), 355, fill = 'black', 
+        lineWidth = 3, arrowStart = True, arrowEnd = True)
+        
+    else:
+        drawLine(550 - (cellWidth * app.cols//2), 5, 550 - (cellWidth * app.cols//2), 355, fill = 'black', 
+        lineWidth = 3, arrowStart = True, arrowEnd = True)
+            
+    
+def drawBoard(app):
+    for row in range(app.rows):
+        for col in range(app.cols):
+            drawCell(app, row, col)
+
+def drawBoardBorder(app):
+  drawRect(app.boardLeft, app.boardTop, app.boardWidth, app.boardHeight,
+           fill=None, border='black',
+           borderWidth=2*app.cellBorderWidth)
+
+def drawCell(app, row, col):
+    cellLeft, cellTop = getCellLeftTop(app, row, col)
+    cellWidth, cellHeight = getCellSize(app)
+    drawRect(cellLeft, cellTop, cellWidth, cellHeight,
+             fill=None, border='black',
+             borderWidth=app.cellBorderWidth)
+
+def getCellLeftTop(app, row, col):
+    cellWidth, cellHeight = getCellSize(app)
+    cellLeft = app.boardLeft + col * cellWidth
+    cellTop = app.boardTop + row * cellHeight
+    return (cellLeft, cellTop)
+
+def getCellSize(app):
+    cellWidth = app.boardWidth / app.cols
+    cellHeight = app.boardHeight / app.rows
+    return (cellWidth, cellHeight)
+
+def distance(x0, y0, x1, y1):
+    return ((x1-x0)**2 + (y1-y0)**2)**0.5
+    
+    
+def inBox(mouseX, mouseY, left, top, width, height):
+    if (mouseX >= left and mouseX <= (left + width)
+    and mouseY >= top and mouseY <= (top + height)):
+        return True
+    else:
+        return False
+    
+def onMousePress(app, mouseX, mouseY):
+    if inBox(mouseX, mouseY, app.polyBoxLeft, app.polyBoxTop,
+    app.polyBoxWidth, app.polyBoxHeight):
+        app.minXClicked = False
+        app.minYClicked = False
+        app.maxXClicked = False
+        app.maxYClicked = False
+        app.resetClicked = False
+        app.polyClicked = True
+        app.clearClicked = False
+        
+        
+    if inBox(mouseX, mouseY, app.clearBoxLeft, app.clearBoxTop,
+    app.clearBoxWidth, app.clearBoxHeight):
+        app.minXClicked = False
+        app.minYClicked = False
+        app.maxXClicked = False
+        app.maxYClicked = False
+        app.resetClicked = False
+        app.polyClicked = False
+        app.clearClicked = True
+        
+        
+    if inBox(mouseX, mouseY, app.resetBoxLeft, app.resetBoxTop,
+    app.resetBoxWidth, app.resetBoxHeight):
+        app.minXClicked = False
+        app.minYClicked = False
+        app.maxXClicked = False
+        app.maxYClicked = False
+        app.resetClicked = True
+        app.polyClicked = False
+        app.clearClicked = False
+        app.minXWord = '5'
+        app.maxXWord = '5'
+        app.minYWord = '5'
+        app.maxYWord = '5'
+        
+    if inBox(mouseX, mouseY, app.minXBoxLeft, app.minXBoxTop,
+    app.minXBoxWidth, app.minXBoxHeight):
+        app.minXClicked = True
+        app.minYClicked = False
+        app.maxXClicked = False
+        app.maxYClicked = False
+        app.resetClicked = False
+        app.polyClicked = False
+        app.clearClicked = False
+        
+        
+    if inBox(mouseX, mouseY, app.minYBoxLeft, app.minYBoxTop,
+    app.minYBoxWidth, app.minYBoxHeight):
+        app.minXClicked = False
+        app.minYClicked = True
+        app.maxXClicked = False
+        app.maxYClicked = False
+        app.resetClicked = False
+        app.polyClicked = False
+        app.clearClicked = False
+        
+        
+    
+    if inBox(mouseX, mouseY, app.maxXBoxLeft, app.maxXBoxTop,
+    app.maxXBoxWidth, app.maxXBoxHeight):
+        app.minXClicked = False
+        app.minYClicked = False
+        app.maxXClicked = True
+        app.maxYClicked = False
+        app.resetClicked = False
+        app.polyClicked = False
+        app.clearClicked = False
+        
+        
+    if inBox(mouseX, mouseY, app.maxYBoxLeft, app.maxYBoxTop,
+    app.maxYBoxWidth, app.maxYBoxHeight):
+        app.minXClicked = False
+        app.minYClicked = False
+        app.maxXClicked = False
+        app.maxYClicked = True
+        app.resetClicked = False
+        app.polyClicked = False
+        app.clearClicked = False
+        
+    
+    
+def onKeyPress(app, key):
+    if app.polyClicked == True:
+        if key == "enter":
+            if app.typedWord[-1] == 'x' or app.typedWord[-1] in string.digits:
+                
+                app.polynomials.append(Polynomial(app.typedWord))
+                app.typedWord = ''
+                app.polyClicked = False
+        if app.typedWord == '':
+            if key == 'x':
+                app.typedWord += key
+            elif key == '-':
+                app.typedWord += key
+            elif key in string.digits:
+                app.typedWord += key
+        elif app.typedWord[-1] == 'x':
+            if key == '^':
+                app.typedWord += key
+            if key == '+':
+                app.typedWord += key
+            if key == '-':
+                app.typedWord += key
+        elif app.typedWord[-1] in string.digits:
+            if key == ".":
+                app.typedWord += key
+            if key == '+':
+                app.typedWord += key
+            if key == '-':
+                app.typedWord += key
+            if key == 'x':
+                app.typedWord += key
+        elif app.typedWord[-1] == '^':
+            if key in string.digits:
+                app.typedWord += key
+        elif app.typedWord[-1] == '-':
+            if key in string.digits:
+                app.typedWord += key
+            if key == 'x':
+                app.typedWord += key
+            if key == ".":
+                app.typedWord += key
+        elif app.typedWord[-1] == '+':
+            if key in string.digits:
+                app.typedWord += key
+            if key == 'x':
+                app.typedWord += key
+            if key == ".":
+                app.typedWord += key
+        elif app.typedWord[-1] == '.':
+            if key in string.digits:
+                app.typedWord += key
+        if key == "backspace":
+            app.typedWord = app.typedWord[:-1]
+    
+    if app.resetClicked == True:
+        app.maxY = 5
+        app.minY = -5
+        app.maxX = 5
+        app.minX = -5
+        app.cols = app.maxX - app.minX
+        app.rows = app.maxY - app.minY
+        
+        
+    if app.clearClicked == True:
+        app.polynomials = []
+        
+    if app.minXClicked == True:
+        if app.minXWord == '' and key == '-':
+            app.minXWord += key
+        if key in string.digits:
+            app.minXWord += key
+        if key == "backspace":
+            app.minXWord = app.minXWord[:-1]
+        if key == 'enter':
+            if int(app.minXWord) < app.maxX:
+                app.minX = int(app.minXWord)
+                app.minXClicked = False
+                app.cols = app.maxX - app.minX
+            
+            
+    if app.maxXClicked == True:
+        if app.maxXWord == '' and key == '-':
+            app.maxXWord += key
+        if key in string.digits:
+            app.maxXWord += key
+        if key == "backspace":
+            app.maxXWord = app.maxXWord[:-1]
+        if key == 'enter':
+            if int(app.maxXWord) > app.minX:
+                app.maxX = int(app.maxXWord)
+                app.maxXClicked = False
+                app.cols = app.maxX - app.minX
+            
+            
+    if app.minYClicked == True:
+        if app.minYWord == '' and key == '-':
+            app.minYWord += key
+        if key in string.digits:
+            app.minYWord += key
+        if key == "backspace":
+            app.minYWord = app.minYWord[:-1]
+        if key == 'enter':
+            if int(app.minYWord) < app.maxY:
+                app.minY = int(app.minYWord)
+                app.minYClicked = False
+                app.rows = app.maxY - app.minY
+            
+            
+    if app.maxYClicked == True:
+        if app.maxYWord == '' and key == '-':
+            app.maxYWord += key
+        if key in string.digits:
+            app.maxYWord += key
+        if key == "backspace":
+            app.maxYWord = app.maxYWord[:-1]
+        if key == 'enter':
+            if int(app.maxYWord) > app.minY:
+                app.maxY = int(app.maxYWord)
+                app.maxYClicked = False
+                app.rows = app.maxY - app.minY
+            
+            
+            
+    if app.resetClicked == True:
+        app.maxY = 5
+        app.minY = -5
+        app.maxX = 5
+        app.minX = -5
+    
+    if app.clearClicked == True:
+        app.polynomials = []
+        
+        
+def onStep(app):
+    if len(app.polynomials) > 8:
+        app.polynomials.pop(0)
+        
+    if app.maxX > 30:
+        app.maxX = 30
+        app.maxXWord = '30'
+        app.cols = app.maxX - app.minX
+        app.rows = app.maxY - app.minY
+        
+    if app.maxY > 30:
+        app.maxY =30
+        app.maxYWord = '30'
+        app.cols = app.maxX - app.minX
+        app.rows = app.maxY - app.minY
+        
+    if app.minX < -30:
+        app.minX = -30
+        app.minXWord = '-30'
+        app.cols = app.maxX - app.minX
+        app.rows = app.maxY - app.minY
+        
+    if app.minY < -30:
+        app.minY = -30
+        app.minYWord = '-30'
+    
+        
+    cellWidth, cellHeight = getCellSize(app)
+    if app.maxY > 0 and app.minX < 0:
+        app.centerX = 30 + cellHeight * app.maxY
+        
+    else:
+        app.centerX = 30 + cellHeight * app.rows//2
+        
+    if app.maxX > 0 and app.minX < 0:
+        app.centerY = 550 - (cellWidth * app.maxX)
+        
+    else:
+        app.centerY = 550 - (cellWidth * app.cols//2)
+        
+    if app.resetClicked == True:
+        app.maxY = 5
+        app.minY = -5
+        app.maxX = 5
+        app.minX = -5
+        app.maxYWord = 5
+        app.minYWord = -5
+        app.maxXWord = 5
+        app.minXWord = -5
+        app.rows = app.maxY - app.minY
+        app.cols = app.maxX - app.minX
+    
+    if app.clearClicked == True:
+        app.polynomials = []
+        
+
+
+
+
+    
+class Polynomial:
+    
+    def __init__(self, coeffs):
+        colors = ['blue', 'red', 'green', 'orange', 'purple', 'maroon', 'pink', 'lightGreen']
+        self.coeffs = coeffs
+        self.color = colors[random.randint(0,7)]
+        
+        
+    def evaluate(self, x):
+        result = 0
+        if self.coeffs[0] == "-":
+            sign = -1
+        else:
+            sign = 1
+            
+        term = ''
+        
+        count = 0
+        
+        for index in self.coeffs:
+            if index == "+":
+                result += turnToNum(term, x, sign)
+                sign = 1
+                term = ''
+                
+                
+            elif index == "-" and count != 0:
+                result += turnToNum(term, x, sign)
+                sign = -1
+                term = ''
+                
+            else:
+                term += index
+            count +=1
+        result += turnToNum(term, x, sign)
+            
+        return result
+    
+    
+    def turnToNum(self, x, sign):
+        isExp = False
+        exp = 0
+        coef = 0
+        total = 0
+        dec = 0
+        counts = 1
+        isDec = False
+    
+        ##fixing test case when it's just x
+        if self.coeffs == "x":
+            return sign * x
+     
+        if self.coeffs == "-x":
+            return -1 * x
+            
+        for i in range(len(self.coeffs)):
+            if self.coeffs[0] == "x":
+                coef = 1
+            
+            if self.coeffs[i] == "x":
+                continue
+            elif self.coeffs[i] == "^":
+                isExp = True
+            elif isExp == True:
+                exp *=10
+                exp += int(self.coeffs[i])
+            elif isDec == True:
+                dec += (int(self.coeffs[i]))/(10**counts)
+                counts +=1
+            elif self.coeffs[i] == ".":
+                isDec = True
+                
+            else:
+                coef *= 10
+                coef += int(self.coeffs[i])
+                
+        #fixing test case        
+                
+        if "x" in self.coeffs and "^" not in self.coeffs:
+            exp = 1
+        
+        coef += dec
+        
+        total = (coef * (x ** exp)) * sign
+        
+        
+        ##accounting for constants
+        if "x" not in self.coeffs:
+            return coef * sign
+        
+        return total
+                
+        
+        
+    
+        
+
+def turnToNum(s, x, sign):
+    isExp = False
+    exp = 0
+    coef = 0
+    total = 0
+    dec = 0
+    counts = 1
+    countsDec = 1
+    isDec = False
+
+    ##fixing test case when it's just x
+    if s == "x":
+        return sign * x
+        
+    if s == "-x":
+        return -1 * x
+        
+          
+    if s[0:2] == '-x':
+        s = '1x' + s[2:]
+ 
+    
+    for i in range(len(s)):
+        if s[0] == "x":
+            coef = 1
+        
+        if s[i] == "x":
+            continue
+        elif s[i] == "^":
+            isExp = True
+        elif isExp == True:
+            exp += int(s[i])
+            
+        elif isDec == True:
+            dec += (int(s[i]))/(10**counts)
+            counts +=1
+        elif s[i] == ".":
+            isDec = True
+        else:
+            coef *= 10
+            coef += int(s[i])
+            
+    #fixing test case        
+            
+    if "x" in s and "^" not in s:
+        exp = 1
+    coef += dec
+    
+    # if sign == -1 and exp%2 == 1:
+    #     total = (coef * ((sign * x) ** exp))
+    # else:
+    #     
+    
+    total = (coef * (x ** exp)) * sign
+    
+    
+    
+    ##accounting for constants
+    if "x" not in s:
+        return coef * sign
+    
+    return total
+            
+
+
+        
+    
+    
+    
+def main():
+    runApp()
+    
+    
+main()
