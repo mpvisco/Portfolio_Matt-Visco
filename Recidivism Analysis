@@ -1,0 +1,301 @@
+```{r}
+knitr::opts_chunk$set(warning=FALSE, message=FALSE, echo=FALSE)
+library(tidyverse)
+library(dplyr)
+library(devtools)
+library(ggbiplot)
+```
+
+
+# Introduction
+
+Recidivism, defined as the tendency for an individual to re-offend after a prison sentence,
+is one of the biggest problems currently facing the criminal justice system. Criminals who are not
+properly rehabilitated just end up getting arrested again and returning to prison, leading to the 
+justice system becoming one big revolving door. The United States, in particular, deals with a massive 
+recidivism problem, as its recidivism rate of 44% after one year is one of the highest rates in the 
+world. It does not help that the U.S. also has the largest percentage of its population imprisoned
+among any first-world country as well. It is evident that this country needs to take a step back, find
+out what is driving these high recidivism rates, and make the appropriate changes. 
+
+# Description of Dataset
+
+In an attempt to find out what is causing the U.S.'s recidivism crisis, we are going to critically 
+examine data regarding recidivism rates in Georgia from 2013 to 2015. This dataset is from the 
+Office of Justice Program and includes information regarding age, race, gender, gang affiliation, 
+education, employment status, drug use, prior arrests and convictions, and most importantly, whether 
+the individual was arrested within three years of being released from prison. Each row in the dataset 
+represents an individual that has gone to prison and is in the Georgia Department of Community Supervision. 
+Each column in the dataset represents a variable or feature related to the individual, such as the ones 
+mentioned eariler. We hope to use this data to determine what factors seem to increase the likelihood of 
+committing another crime, and using what we find in order to inform criminal justice policy strategies.
+
+
+```{r}
+recidivism_data = read.csv("NIJ_s_Recidivism_Challenge_Full_Dataset.csv", 
+                           stringsAsFactors=TRUE, na.strings=c(""))
+```
+
+# Research Questions
+
+While there is a laundry list of questions one could ask with this dataset, we are going to focus on three in
+particular. Starting off, we wanted to understand how  the predicted risk score for individuals relates to actual
+recidivism outcomes. Next, we were curious about whether individuals who followed the supervision programs, were
+employed, and avoided drugs less likely to recidivate. Finally, we studied how recidivism rates vary based on the
+type and severity of the offense. 
+
+### Research Question #1 : How does the predicted risk score for individuals relate to actual recidivism outcomes?
+
+Individuals in our dataset have predicted risk scores which indicate how likely they are to recidivate, and we
+wanted to understand if there was a correlation between predicted risk scores and actual recidivism outcomes
+and see how accurate the predicted risk scores are.
+
+
+graph1data <- recidivism_data %>% select(Supervision_Risk_Score_First, Recidivism_Within_3years)
+graph1data <- graph1data %>% drop_na()
+
+ggplot(graph1data, aes(x = Supervision_Risk_Score_First)) + geom_bar(fill = "red")
++ facet_grid(.~Recidivism_Within_3years) +
+labs(x = "Predicted Risk Score", y = "Count", title = "Distribution of Predicted Risk Score by Recidivism Rates")
+
+
+
+The graph above depicts the distribution of predicted risk scores by recidivism rates within 3 years. We can
+see that in the first facet, where individuals did not recidivate within 3 years, the distribution of the data
+looks more normal. However, in the second facet where individuals did recidivate within 3 years, the distribution
+is skewed to the right. It looks like higher predicted risk scores have a higher count of individuals that
+recidivate. We would also expect lower risk scores to have a higher count of individuals that do not recidivate, but
+the graph shows only a slight increase. However, it appears that overall, predicted risk scores and actual
+recidivism outcomes are correlated which makes sense.
+
+While analyzing the predicted risk score, we wanted to see what attributes of an individual, such as race, gender, and
+education level, correspond to higher predicted risk scores. We first analyzed the predicted risk score in terms of race
+and gender of the individual.
+
+
+```{r}
+graph2data <- recidivism_data %>% select(Supervision_Risk_Score_First, Race, Gender)
+graph2data <- graph2data %>% drop_na()
+
+ggplot(graph2data, aes(x = Supervision_Risk_Score_First, fill = Race)) + 
+facet_grid(.~Gender) + geom_bar() + labs(x = "Predicted Risk Score", y = "Count", 
+color = "Education Level", title = "Distribution of Predicted Risk Score by Race and Gender")
+```
+
+From the faceted graph above, we can see that a majority of the individuals being analyzed are males, in comparison
+to females. From the graph of females, we can see that the distribution of predicted risk score is unimodal and skewed
+right, with a majority being individuals of the race White. From the graph of males, we can see that the distribution
+is skewed to the right, with a majority being individuals of the race Black. We can conclude that more White females
+have a higher predicted risk score than Black females and that more Black males have a higher predicted risk score
+than White males. One drawback of this data analysis is that there is limited data on females in comparison to males
+and there is only data on two races, which could affect the conclusions made above.
+
+```{r}
+graph3data <- recidivism_data %>% select(Supervision_Risk_Score_First, Education_Level)
+graph3data <- graph3data %>% drop_na()
+
+ggplot(graph3data, aes(x = Education_Level, y = Supervision_Risk_Score_First)) + geom_boxplot(color = "red",
+fill = "orange", alpha = 0.5) + labs(title = "Distribution of Predicted Risk Score by Education Level",
+x = "Education Level", y = "Predicted Risk Score")
+```
+
+We also wanted to see if there was a correlation between education level and predicted risk score. From the box plot above, we
+can see that individuals with at least some college education have a median predicted risk score of 5.0, while individuals
+with a high school diploma or less have a predicted risk score greater than 6. Looking at the box plot shape, the plot of
+individuals with a high school diploma looks to be normally distributed, while individuals with at least some college and
+less than a high school diploma have a positive skew or skewed to the right. We can conclude that higher level education
+corresponds to a lower predicted risk score. Because our dataset did not specify the calculation behind the predicted
+risk score, we wanted to see if attributes of an individual play a role in the numerical value of the score. From our
+analysis of the graphs above, we can see that lower education levels and Black males have a higher predicted risk score.
+
+### Research Question #2 : Were individuals who followed the supervision programs, were employed, and avoided drugs less likely to recidivate?
+
+To approach this question, we were curious about the relationships between recidivisim rates and individuals drug usage and
+employment status. Our initial guess was that lower positivtiy rates for drug test and higher employment rates would correspond 
+to lower recidivism rates within 3 years and we tested our hypothesis below. Our dataset gave us information about individual's
+drug usage in terms of cocaine, meth, THC, and other types of drugs. We consolidated this data to determine individual's overall drug usage. 
+
+```{r}
+recidivism_data$total_drug <- recidivism_data$DrugTests_Cocaine_Positive + recidivism_data$DrugTests_Meth_Positive
++ recidivism_data$DrugTests_Other_Positive + recidivism_data$DrugTests_THC_Positive
+
+graph4data <- recidivism_data %>% select(Percent_Days_Employed, total_drug, Recidivism_Within_3years)
+graph4data <- graph4data %>% drop_na()
+
+ggplot(graph4data, aes(x = Percent_Days_Employed, y = total_drug)) +
+geom_point(aes(color = Recidivism_Within_3years)) + labs(title = "Relationship Between Employment and Positive Drug Tests",
+x = "Percentage of Days Employed", y = "Positive Drug Test Rate") + scale_color_discrete(labels = c("No", "Yes"), name = "Recidivism Within 3 Years")
+```
+
+This plot shows us that the far majority of people who do not reoffend have low positive drug test rates and high employment rates.
+That means that people who are following the guidelines of avoiding drugs and finding work opportunities are typically the ones who
+have the most success when it comes to avoiding another arrest. This tells us that in order to lower recidivism rates, focusing on
+helping former criminals gain employment and avoid drugs should be a winning strategy.
+
+We also wanted to gain insights about whether there was a relationship between program attendance and initial supervision level, as
+well as program violations and recividism outcome rates.
+
+```{r}
+violations <- 1:25835
+for (i in 1:25835)
+{
+  violations[i] = "false"
+  if (recidivism_data$Violations_ElectronicMonitoring[i] == "true" | 
+      recidivism_data$Violations_FailToReport[i] == "true" | 
+      recidivism_data$Violations_Instruction[i] == "true" | 
+      recidivism_data$Violations_MoveWithoutPermission[i] == "true") {
+  violations[i] = "true"
+  } 
+}
+
+recidivism_data$Supervision_Level_First = factor(recidivism_data$Supervision_Level_First, 
+                                            levels=c("Standard", "High", "Specialized"))
+recidivism_data$Program_Attendances = factor(recidivism_data$Program_Attendances,
+                                             levels=c("0", "1", "2", "3", "4", "5", "6", "7", "8",
+                                                      "9", "10 or more"))
+
+mosaicplot(table(recidivism_data$Program_Attendances, recidivism_data$Supervision_Level_First),
+shade = TRUE, main = "Mosaic Plot of Program Attendance by Initial Supervision Level")
+```
+
+By looking at the plot above, we see that the program attendance of 0 is the most common because the
+rectangle has the largest area on the mosaic plot. Meanwhile, It seems like program attendance of 1-5, and
+7-9 seems to be the least common as it has the smallest area on the mosaic plot. 6 and 10 have decent program
+attendance which makes sense because most prisoners would either choose to just not attend the programs or attend
+and actually partake in them for some time. From our data, also we can see that high levels of initial supervision
+seem to be counterintuitive and have the fewest number of observations than expected. Specialized levels of initial
+supervision, which in Georgia are given only to people who commit sex crimes, seem to be best as they have the most
+number of observations than expected throughout the attendance program with only fewer observations than expected
+for 0 attendance, which is great and highlights that supervision and program attendance could be very helpful. This
+graph shows that a specialized initial supervision level is correlated with program attendance, which makes sense
+because sex crimes are generally considered to be the worst type of crime so probation officers may place a greater
+emphasis on the importance of following the program.
+
+```{r}
+mosaicplot(table(violations, recidivism_data$Recidivism_Within_3years),
+shade = TRUE, main = "Mosaic Plot of Program Violations vs Recidivism Outcome")
+```
+
+From the mosaic plot above, we see that the prisoners who conduct program violations such as
+Electronic Monitoring, Instruction, Failure to Report, and Moving without Permission, are the least
+common because the rectangle has the smallest area on the mosaic plot. Meanwhile, the combination of
+prisoners who don't conduct program violations is the most common as its rectangle is the largest in area. 
+
+The colors represent the residual of that cell/combination of levels. Blue means there is more observation
+than expected under the null model and red meaning that there are fewer observations than expected. From our
+data, we can see that prisoners who conduct program violations but do not recidivate within 3 years have the
+fewest number of observations than expected. Prisoners who conduct program violations but do recidivate within
+3 years have the most number of observations than expected. This shows that program violations could very well
+be an indication of recidivism in the future. 
+
+To gain a higher-level understanding of how the quantitative variables of our dataset are related, we performed principal component analysis.
+
+```{r}
+recid.data <- recidivism_data
+recid.data[, c("ID", "Training_Sample", "Gang_Affiliated", "total_drug")] = list(NULL)
+# convert recidivism variable to logical
+recid.data$Recidivism_Within_3years = as.logical(recid.data$Recidivism_Within_3years)
+# convert residence variable to factor
+recid.data$Residence_PUMA = as.factor(recid.data$Residence_PUMA)
+# drop NAs
+recid.data = recid.data %>% drop_na()
+
+recid.subset = recid.data %>% select_if(is.numeric)
+recid.subset = apply(recid.subset, MARGIN = 2, FUN = function(x) x - mean(x))
+recid.subset = apply(recid.subset, MARGIN = 2, FUN = function(x) x/sd(x))
+recid.pca = prcomp(recid.subset, center=TRUE, scale.=TRUE)
+recid.data$Supervision_Level_First = factor(recid.data$Supervision_Level_First, 
+                                            levels=c("Standard", "High", "Specialized"))
+ggbiplot(recid.pca, groups=recid.data$Supervision_Level_First, alpha=0.5) +
+  labs(title="First two principal components", color="Supervision level") 
+```
+
+From the PCA plot, we can see that the data is roughly clustered into bands according to initial
+supervision level. The variable that is most strongly related to the two principal components is supervision
+risk score, and the arrow for this variable is almost perpendicular to the bands which makes sense as
+supervision level is determined by risk score. Variables relating to drug usage are also approximately
+perpendicular to the bands, implying that people with higher supervision levels tend to have higher rates
+of positive drug tests. This agrees with our previous graphs which showed that recidivism is correlated with
+drug usage and risk scores. 
+
+### Research Question #3 : How do recidivism rates vary based on the type and severity of the offense?
+
+Our final research question is to understand the relationship between the 3 year recidivism rates and the type
+of offense and the severity of the offense. To do so, we first chose to analyze recidivism rates within 3 years
+based on the length of individuals' sentences and the type of offense committed.
+
+```{r}
+graph5data <- recidivism_data %>% select(Prison_Offense, Prison_Years, Recidivism_Within_3years)
+graph5data <- graph5data %>% drop_na()
+
+ggplot(graph5data, aes(x = Prison_Offense, fill = Prison_Years)) +
+geom_bar() + facet_grid(~Recidivism_Within_3years) +
+labs(x = "Type of Offense", y = "Count",
+title = "Recidivism Based on Sentence Length and Type of Offense") +
+scale_fill_discrete(guide = guide_legend(title = "Sentence Length")) +
+theme(plot.title = element_text(hjust = 0.5), axis.text.x = element_text(angle = 90))
+
+```
+
+This stacked bar plot shows that property crimes are by far the most common offenses while sex crimes are comparatively
+rare. Looking specifically at property crimes, the recidivism rate is the highest out of all crime options, even though
+the sentence lengths are low. Additionally, the only type of offense not to see a recidivism rate above 50% is sex crimes.
+This graph seems to imply that crimes that are the most severe/have the highest sentence lengths actually have the lowest
+recidivism rate. It is possible that the longer people are in prison, the more they are incentivized to take steps to avoid going back.
+
+Finally, we wanted to gain insights on recidivism rates within 3 years by the number of prior misdemeanor arrests. 
+
+```{r}
+ggplot(recidivism_data, aes(x=Prior_Arrest_Episodes_Misd)) + 
+  geom_bar(aes(fill=Recidivism_Within_3years)) +
+  labs(title="Recidivism by Number of Prior Arrests",
+       x="Number of Prior Misdemeanor Arrests", y="Count") + scale_fill_discrete(labels = c("No", "Yes"), name = "Recidivism Within 3 Years")
+
+```
+
+This bar plot shows that the majority of subjects had six or more prior misdemeanor arrests. Interestingly, the second most
+common number of prior arrests is zero, and the frequency for the remaining categories decreases as the number of arrests
+increases. We can also see that people with six or more priors have the highest recidivism rate, while people with zero priors
+have the lowest rate. In fact, a proportion table reveals that recidivism rate is strictly increasing with number of prior
+arrests. Basedon this analysis we can conclude that first-time offenders are not likely to recidivate, but the more times
+a person is arrested, the more likely they are to be arrested again in the future.
+
+# Conclusion
+
+Looking at the visualizations we made, there are some clear conclusions we can come to about recidivism. Answering our
+first research question, individuals with a higher predicted risk score do have higher rates of recidivism. Looking at
+predicted risk scores, race does seem to play a factor, as Black males have higher predicted risk scores than White males, while
+White females have higher predicted risk scores than Black females. The less education someone has also leads to a
+higher predicted risk score as well. However, we do need to use risk scores with caution and ensure that the algorithm used 
+to calculate the scores is fair and unbiased.
+
+Now examining our second question, individuals who follow the guidelines post-prison do tend to have lower recidivism rates. That
+means people who are attending their probation appointments, avoiding drugs, not violating the terms of their release, and gaining
+employment are the ones who are staying out of prison. This is an unsurprising result and it tells us that more efforts should be
+made towards getting former prisoners to follow these guidelines, because that is what will lower the recidivism rates. 
+
+Finally, we found how recidivism rates vary based on the type and severity of the offense. What we found is that those who were
+in prison for shorter amounts of time and for lighter (comparatively) offenses such as property crime, were most likely to
+reoffend. However, individuals who spent a longer time in prison for more serious crimes were less likely to reoffend. We also
+found the more offenses an individual had committed in the past, the more likely they were to reoffend, which highlights the
+importance of early intervention.
+
+To sum up, the data mostly wasn't that surprising. Individuals who had committed crimes in the past and had higher predicted
+risk scores had higher recidivism rates. However, it was interesting to see that those who had longer sentences for more serious
+crimes reoffended less. The main takeaway of our analysis is that the most important factors to consider if we wish to reduce
+recidivism rates are the success of the probation supervision programs and early intervention.
+
+
+# Future Work & Limitations
+
+Unfortunately, there are some clear limitations to this data. First of all, the dataset is from 2013 to 2015, so the factors
+that may have influenced recidivism may be different today than they were years ago. Additionally, the data comes entirely
+from Georgia, which may not be representative of the United States as a whole. The data also does not include gang affiliation
+for female prisoners, which could possibly result in some missing context. Also, it stops separating for age after 48 years, so
+we are unable to tell whether there is any difference in recidivism for those aged 48-60 and 61+ for example. The racial data only
+includes Black and White, while excluding prisoners who are Asian, Hispanic, or a member of another racial group. The dataset also
+does not include where in Georgia these arrests are taking place, as recidivism rates might very well be different between downtown
+Atlanta and more rural parts of Georgia. Finally, the lack of quantitative data made it difficult to provide a more quantitative
+analysis towards recidivism rates. Despite the problems with this dataset, it is still very detailed and we can still make several
+conclusions based on it. In future research, we recommend using data from various states of the United States, which is more diverse
+and inclusive in terms of gender, age, and race and containing more geographic and quantitative data. 
